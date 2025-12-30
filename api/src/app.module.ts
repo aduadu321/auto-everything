@@ -16,6 +16,7 @@ import { WaitlistModule } from './modules/waitlist/waitlist.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { MarketplaceModule } from './modules/marketplace/marketplace.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     BillingModule,
     OnboardingModule,
     DashboardModule,
+    MarketplaceModule,
   ],
   controllers: [AppController],
   providers: [AppService],
