@@ -12,6 +12,9 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { HolidaysModule } from './modules/holidays/holidays.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { WaitlistModule } from './modules/waitlist/waitlist.module';
+import { BillingModule } from './modules/billing/billing.module';
+import { OnboardingModule } from './modules/onboarding/onboarding.module';
 
 @Module({
   imports: [
@@ -26,6 +29,9 @@ import { AuthModule } from './modules/auth/auth.module';
     AppointmentsModule,
     HolidaysModule,
     AuthModule,
+    WaitlistModule,
+    BillingModule,
+    OnboardingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

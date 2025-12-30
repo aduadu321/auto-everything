@@ -16,13 +16,39 @@ model Tenant {
   domain        String?  @unique
   databaseUrl   String   @map("database_url")
 
+  // Business Info
+  businessType  BusinessType @default(ITP_STATION) @map("business_type")
+  phone         String?
+  address       String?
+  city          String?
+  county        String?
+  latitude      Float?
+  longitude     Float?
+
   // Subscription & Billing
-  plan          Plan     @default(FREE)
-  smsCredits    Int      @default(100) @map("sms_credits")
+  plan                  Plan     @default(FREE)
+  smsCredits            Int      @default(100) @map("sms_credits")
+  stripeCustomerId      String?  @unique @map("stripe_customer_id")
+  stripeSubscriptionId  String?  @unique @map("stripe_subscription_id")
+  subscriptionStatus    String?  @map("subscription_status")
+  currentPeriodEnd      DateTime? @map("current_period_end")
+
+  // Marketplace
+  isListed      Boolean  @default(false) @map("is_listed")
+  isVerified    Boolean  @default(false) @map("is_verified")
+  rarLicense    String?  @map("rar_license")
+  rating        Float    @default(0)
+  reviewCount   Int      @default(0) @map("review_count")
 
   // Settings
   timezone      String   @default("Europe/Bucharest")
   locale        String   @default("ro")
+  notificationSettings Json? @map("notification_settings")
+  smsGatewayType String  @default("SHARED") @map("sms_gateway_type")
+
+  // Onboarding
+  isOnboarded   Boolean  @default(false) @map("is_onboarded")
+  onboardedAt   DateTime? @map("onboarded_at")
 
   // Status
   isActive      Boolean  @default(true) @map("is_active")
@@ -41,6 +67,7 @@ model User {
   email         String   @unique
   passwordHash  String   @map("password_hash")
   name          String?
+  phone         String?
 
   // Status
   isActive      Boolean  @default(true) @map("is_active")
@@ -55,9 +82,140 @@ model User {
   @@map("users")
 }
 
+// Waitlist for early signups
+model WaitlistEntry {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  phone         String?
+  businessName  String?  @map("business_name")
+  businessType  String?  @map("business_type")
+  source        String   @default("landing_page")
+
+  // Conversion tracking
+  convertedAt   DateTime? @map("converted_at")
+  convertedToTenantId String? @map("converted_to_tenant_id")
+
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("waitlist_entries")
+}
+
+// Service requests from clients (Marketplace)
+model ServiceRequest {
+  id              String   @id @default(uuid())
+
+  // Client info
+  clientPhone     String   @map("client_phone")
+  clientName      String?  @map("client_name")
+  clientEmail     String?  @map("client_email")
+
+  // Vehicle
+  vehiclePlate    String   @map("vehicle_plate")
+  vehicleMake     String?  @map("vehicle_make")
+  vehicleModel    String?  @map("vehicle_model")
+  vehicleYear     Int?     @map("vehicle_year")
+
+  // Request
+  serviceType     ServiceRequestType @map("service_type")
+  preferredDate   DateTime? @map("preferred_date")
+  location        String?
+  county          String?
+  maxDistance     Int?     @map("max_distance")
+  notes           String?
+
+  // Status
+  status          RequestStatus @default(OPEN)
+
+  createdAt       DateTime @default(now()) @map("created_at")
+  expiresAt       DateTime @map("expires_at")
+
+  // Relations
+  offers          ServiceOffer[]
+
+  @@index([status])
+  @@index([county])
+  @@map("service_requests")
+}
+
+model ServiceOffer {
+  id              String   @id @default(uuid())
+
+  // Pricing
+  price           Decimal  @db.Decimal(10, 2)
+  availableDate   DateTime @map("available_date")
+  notes           String?
+
+  // Status
+  status          OfferStatus @default(PENDING)
+
+  // Relations
+  request         ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  requestId       String   @map("request_id")
+  tenantId        String   @map("tenant_id")
+
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@map("service_offers")
+}
+
+// Reviews for tenants
+model Review {
+  id              String   @id @default(uuid())
+
+  tenantId        String   @map("tenant_id")
+  clientPhone     String   @map("client_phone")
+  clientName      String?  @map("client_name")
+
+  rating          Int      // 1-5
+  comment         String?
+  serviceType     String?  @map("service_type")
+
+  isVerified      Boolean  @default(false) @map("is_verified")
+  isPublished     Boolean  @default(true) @map("is_published")
+
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@map("reviews")
+}
+
 enum Plan {
   FREE
   STARTER
   PROFESSIONAL
   ENTERPRISE
+}
+
+enum BusinessType {
+  ITP_STATION
+  AUTO_SERVICE
+  TIRE_SHOP
+  CAR_WASH
+  INSURANCE_BROKER
+  MULTI_SERVICE
+}
+
+enum ServiceRequestType {
+  ITP
+  RCA
+  CASCO
+  SERVICE
+  TIRE
+  OTHER
+}
+
+enum RequestStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  EXPIRED
+  CANCELLED
+}
+
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
 }

@@ -15,20 +15,34 @@ import { HomePage } from './pages/HomePage';
 import { ClientPortalPage } from './pages/ClientPortalPage';
 import { AdminPage } from './pages/AdminPage';
 import { LoginPage } from './pages/LoginPage';
+import { LandingPage } from './pages/LandingPage';
+import { RegisterPage } from './pages/RegisterPage';
+import { PricingPage } from './pages/PricingPage';
+import { OnboardingPage } from './pages/OnboardingPage';
+import { PublicMarketplacePage } from './pages/PublicMarketplacePage';
 
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Public Pages */}
-          <Route path="/" element={<HomePage />} />
+          {/* Marketing Pages */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/cauta" element={<PublicMarketplacePage />} />
+          <Route path="/marketplace" element={<PublicMarketplacePage />} />
+
+          {/* Auth Pages */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
+          <Route path="/admin/login" element={<LoginPage />} />
+
+          {/* Public Pages - Tenant Specific */}
+          <Route path="/app" element={<HomePage />} />
           <Route path="/programare" element={<HomePage />} />
           <Route path="/programarile-mele" element={<ClientPortalPage />} />
           <Route path="/verificare" element={<ClientPortalPage />} />
-
-          {/* Admin Login */}
-          <Route path="/admin/login" element={<LoginPage />} />
 
           {/* Admin Calendar - Zile Blocate (Public for now) */}
           <Route path="/admin-calendar" element={<AdminPage />} />
