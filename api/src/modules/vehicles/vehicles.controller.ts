@@ -7,11 +7,14 @@ import {
   Body,
   Param,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { VehiclesService } from './vehicles.service';
 import { CreateVehicleDto, UpdateVehicleDto } from './dto/vehicle.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('vehicles')
+@UseGuards(JwtAuthGuard)
 export class VehiclesController {
   constructor(private readonly vehiclesService: VehiclesService) {}
 
