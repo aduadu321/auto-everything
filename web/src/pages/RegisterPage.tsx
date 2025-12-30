@@ -5,6 +5,7 @@ import {
   Car, Mail, Lock, User, Phone, Building2, MapPin,
   ArrowRight, CheckCircle, Eye, EyeOff
 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 const businessTypes = [
   { value: 'ITP_STATION', label: 'Stație ITP' },
@@ -26,6 +27,7 @@ const counties = [
 
 export function RegisterPage() {
   const navigate = useNavigate();
+  const { register } = useAuth();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -111,22 +113,23 @@ export function RegisterPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+      await register({
+        email: formData.email,
+        password: formData.password,
+        name: formData.name,
+        phone: formData.phone,
+        businessName: formData.businessName,
+        businessType: formData.businessType,
+        county: formData.county,
+        city: formData.city,
+        address: formData.address || undefined,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Eroare la înregistrare');
-      }
-
-      // Success - redirect to dashboard or onboarding
-      navigate('/admin?welcome=true');
+      // Success - redirect to onboarding
+      navigate('/onboarding');
     } catch (err: any) {
-      setError(err.message);
+      const message = err.response?.data?.message || err.message || 'Eroare la înregistrare';
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }

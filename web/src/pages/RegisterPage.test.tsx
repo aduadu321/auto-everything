@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { RegisterPage } from './RegisterPage';
+import { AuthProvider } from '../contexts/AuthContext';
 
 // Mock framer-motion
 vi.mock('framer-motion', () => ({
@@ -12,8 +13,21 @@ vi.mock('framer-motion', () => ({
   AnimatePresence: ({ children }: any) => <>{children}</>,
 }));
 
+// Mock axios/api
+vi.mock('../services/api', () => ({
+  api: {
+    get: vi.fn(),
+    post: vi.fn(),
+    defaults: { headers: { common: {} } },
+  },
+}));
+
 const renderWithRouter = (component: React.ReactElement) => {
-  return render(<BrowserRouter>{component}</BrowserRouter>);
+  return render(
+    <BrowserRouter>
+      <AuthProvider>{component}</AuthProvider>
+    </BrowserRouter>
+  );
 };
 
 describe('RegisterPage', () => {
