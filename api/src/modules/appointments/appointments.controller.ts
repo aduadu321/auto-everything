@@ -9,6 +9,7 @@ import {
   Query,
   Res,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { AppointmentsService } from './appointments.service';
@@ -22,13 +23,17 @@ import {
   RarBlockDto,
   ItpResultDto,
 } from './dto/appointment.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('appointments')
+@UseGuards(JwtAuthGuard)
 export class AppointmentsController {
   constructor(private readonly appointmentsService: AppointmentsService) {}
 
   // ==================== APPOINTMENTS ====================
 
+  @Public()
   @Post()
   create(@Body() dto: CreateAppointmentDto) {
     return this.appointmentsService.create(dto);
@@ -54,6 +59,7 @@ export class AppointmentsController {
     return this.appointmentsService.getCalendarData(m, y);
   }
 
+  @Public()
   @Get('slots')
   getAvailableSlots(
     @Query('date') date: string,
@@ -65,6 +71,7 @@ export class AppointmentsController {
     );
   }
 
+  @Public()
   @Get('confirmation/:code')
   findByConfirmationCode(@Param('code') code: string) {
     return this.appointmentsService.findByConfirmationCode(code);
@@ -97,6 +104,7 @@ export class AppointmentsController {
 
   // ==================== APPROVAL VIA EMAIL LINK ====================
 
+  @Public()
   @Get("approve/:token")
 
   async approveByToken(@Param('token') token: string, @Res() res: Response) {
@@ -116,6 +124,7 @@ export class AppointmentsController {
     }
   }
 
+  @Public()
   @Get('reject/:token')
   async rejectByToken(@Param('token') token: string, @Res() res: Response) {
     try {
@@ -286,6 +295,7 @@ export class AppointmentsController {
 
   // ==================== WORKING HOURS ====================
 
+  @Public()
   @Get('settings/working-hours')
   getWorkingHours() {
     return this.appointmentsService.getWorkingHours();
