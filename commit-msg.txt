@@ -1,0 +1,15 @@
+Faza 5: Implementare completa autentificare cu registration
+
+- Adaugat RegisterDto cu validare pentru email, password, nume, telefon, business
+- Creat PrismaMasterService pentru operatiuni pe master database (User, Tenant)
+- Implementat auth.service.register() care creeaza User + Tenant in tranzactie
+- Genereaza slug automat din numele afacerii (cu diacritice suportate)
+- Adaugat endpoint POST /auth/register in controller
+- Actualizat AuthContext cu functia register si tenant state
+- Actualizat RegisterPage sa foloseasca useAuth pentru registration
+- Fixed test pentru RegisterPage (adaugat AuthProvider wrapper)
+- Toate 29 teste trec
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>

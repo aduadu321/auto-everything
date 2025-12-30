@@ -15,6 +15,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { WaitlistModule } from './modules/waitlist/waitlist.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
     WaitlistModule,
     BillingModule,
     OnboardingModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],
