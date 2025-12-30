@@ -1,0 +1,77 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: itp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: itp_miseda
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - itp-network
+
+  # NestJS API
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile.prod
+    container_name: itp-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      TENANT_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/itp_miseda
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/itp_miseda
+      JWT_SECRET: miseda-itp-super-secret-jwt-key-2024
+      JWT_EXPIRES_IN: 7d
+      ADMIN_EMAIL: aduadu321@gmail.com
+      ADMIN_PASSWORD: MisedaAdmin2024!
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - itp-network
+
+  # React Frontend
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile.prod
+      args:
+        VITE_API_URL: /api
+    container_name: itp-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      - itp-network
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: itp-nginx
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - api
+      - web
+    networks:
+      - itp-network
+
+networks:
+  itp-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

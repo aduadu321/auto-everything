@@ -1,0 +1,8 @@
+{
+  "versionCode": 14,
+  "versionName": "1.9.4",
+  "apkUrl": "https://misedainspectsrl.ro/apps/sms-gateway/sms-gateway-v1.9.4.apk",
+  "changelog": "v1.9.4: Phase 2 Security - Root Detection, App Integrity Check, Device Security Header",
+  "minSdkVersion": 26,
+  "mandatory": false
+}

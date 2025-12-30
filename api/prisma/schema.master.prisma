@@ -1,0 +1,63 @@
+// Master Database Schema - Stores tenant information
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/master"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("MASTER_DATABASE_URL")
+}
+
+model Tenant {
+  id            String   @id @default(uuid())
+  name          String
+  slug          String   @unique
+  domain        String?  @unique
+  databaseUrl   String   @map("database_url")
+
+  // Subscription & Billing
+  plan          Plan     @default(FREE)
+  smsCredits    Int      @default(100) @map("sms_credits")
+
+  // Settings
+  timezone      String   @default("Europe/Bucharest")
+  locale        String   @default("ro")
+
+  // Status
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  owner         User     @relation(fields: [ownerId], references: [id])
+  ownerId       String   @map("owner_id")
+
+  @@map("tenants")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String   @map("password_hash")
+  name          String?
+
+  // Status
+  isActive      Boolean  @default(true) @map("is_active")
+  emailVerified Boolean  @default(false) @map("email_verified")
+
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenants       Tenant[]
+
+  @@map("users")
+}
+
+enum Plan {
+  FREE
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}

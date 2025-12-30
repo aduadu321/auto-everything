@@ -1,0 +1,614 @@
+// Tenant Database Schema - Each tenant has their own database
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/tenant"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("TENANT_DATABASE_URL")
+}
+
+// ============================================
+// CONTACTS & GROUPS
+// ============================================
+model Contact {
+  id          String   @id @default(uuid())
+  phone       String
+  name        String?
+  email       String?
+
+  // Custom fields (JSON)
+  metadata    Json?
+
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  groups      ContactGroup[]
+  messages    SmsMessage[]
+
+  @@unique([phone])
+  @@map("contacts")
+}
+
+model Group {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  contacts    ContactGroup[]
+  campaigns   Campaign[]
+
+  @@map("groups")
+}
+
+model ContactGroup {
+  contact     Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId   String   @map("contact_id")
+  group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId     String   @map("group_id")
+
+  addedAt     DateTime @default(now()) @map("added_at")
+
+  @@id([contactId, groupId])
+  @@map("contact_groups")
+}
+
+// ============================================
+// SMS TEMPLATES
+// ============================================
+model Template {
+  id          String   @id @default(uuid())
+  name        String
+  content     String   @db.Text
+
+  // Variables: {{name}}, {{date}}, etc.
+  variables   String[] @default([])
+
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  campaigns   Campaign[]
+  messages    SmsMessage[]
+
+  @@map("templates")
+}
+
+// ============================================
+// CAMPAIGNS
+// ============================================
+model Campaign {
+  id          String         @id @default(uuid())
+  name        String
+  status      CampaignStatus @default(DRAFT)
+
+  // Scheduling
+  scheduledAt DateTime?      @map("scheduled_at")
+  startedAt   DateTime?      @map("started_at")
+  completedAt DateTime?      @map("completed_at")
+
+  // Stats
+  totalCount  Int            @default(0) @map("total_count")
+  sentCount   Int            @default(0) @map("sent_count")
+  failedCount Int            @default(0) @map("failed_count")
+
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  template    Template?      @relation(fields: [templateId], references: [id])
+  templateId  String?        @map("template_id")
+  group       Group?         @relation(fields: [groupId], references: [id])
+  groupId     String?        @map("group_id")
+  messages    SmsMessage[]
+
+  @@map("campaigns")
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  RUNNING
+  PAUSED
+  COMPLETED
+  FAILED
+}
+
+// ============================================
+// SMS MESSAGES
+// ============================================
+model SmsMessage {
+  id          String        @id @default(uuid())
+  phone       String
+  content     String        @db.Text
+
+  // Status tracking
+  status      MessageStatus @default(PENDING)
+  providerRef String?       @map("provider_ref") // External ID from SMS provider
+
+  // Cost tracking
+  segments    Int           @default(1)
+  cost        Decimal?      @db.Decimal(10, 4)
+
+  // Timestamps
+  sentAt      DateTime?     @map("sent_at")
+  deliveredAt DateTime?     @map("delivered_at")
+  failedAt    DateTime?     @map("failed_at")
+  errorMsg    String?       @map("error_msg")
+
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  // Relations
+  contact     Contact?      @relation(fields: [contactId], references: [id])
+  contactId   String?       @map("contact_id")
+  template    Template?     @relation(fields: [templateId], references: [id])
+  templateId  String?       @map("template_id")
+  campaign    Campaign?     @relation(fields: [campaignId], references: [id])
+  campaignId  String?       @map("campaign_id")
+
+  @@index([phone])
+  @@index([status])
+  @@index([createdAt])
+  @@map("sms_messages")
+}
+
+enum MessageStatus {
+  PENDING
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  UNDELIVERED
+}
+
+// ============================================
+// TENANT USERS (Staff)
+// ============================================
+model TenantUser {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  passwordHash String?  @map("password_hash")
+  name        String?
+  role        UserRole @default(MEMBER)
+
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("tenant_users")
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  MEMBER
+  READONLY
+}
+
+// ============================================
+// SETTINGS
+// ============================================
+model Setting {
+  key         String   @id
+  value       Json
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+// ============================================
+// CLIENTS (Vehicle Owners)
+// ============================================
+model Client {
+  id          String   @id @default(uuid())
+
+  // Personal Info
+  firstName   String   @map("first_name")
+  lastName    String   @map("last_name")
+  phone       String
+  email       String?
+
+  // Address
+  address     String?
+  city        String?
+  county      String?
+
+  // Preferences
+  preferSms   Boolean  @default(true) @map("prefer_sms")
+  preferEmail Boolean  @default(false) @map("prefer_email")
+
+  // Notes
+  notes       String?  @db.Text
+
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  vehicles    Vehicle[]
+  notifications NotificationLog[]
+  appointments Appointment[]
+
+  @@unique([phone])
+  @@index([lastName, firstName])
+  @@map("clients")
+}
+
+// ============================================
+// VEHICLES
+// ============================================
+model Vehicle {
+  id              String   @id @default(uuid())
+
+  // Vehicle Info
+  plateNumber     String   @map("plate_number")
+  vin             String?  // Vehicle Identification Number
+  make            String   // Marca (Dacia, VW, etc.)
+  model           String   // Modelul (Logan, Golf, etc.)
+  year            Int?
+  engineType      String?  @map("engine_type") // Benzina, Diesel, Electric, Hybrid
+  engineCapacity  Int?     @map("engine_capacity") // cm3
+
+  // Colors
+  color           String?
+
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId        String   @map("client_id")
+  documents       Document[]
+
+  @@unique([plateNumber])
+  @@index([clientId])
+  @@map("vehicles")
+}
+
+// ============================================
+// DOCUMENTS (ITP, Insurance, Vignette)
+// ============================================
+model Document {
+  id              String       @id @default(uuid())
+
+  type            DocumentType
+
+  // Dates
+  issueDate       DateTime?    @map("issue_date")
+  expiryDate      DateTime     @map("expiry_date")
+
+  // Document specific data
+  documentNumber  String?      @map("document_number")
+  issuedBy        String?      @map("issued_by") // RAR, Allianz, etc.
+  cost            Decimal?     @db.Decimal(10, 2)
+
+  // For Insurance
+  insuranceType   String?      @map("insurance_type") // RCA, CASCO
+  insuranceCompany String?     @map("insurance_company")
+
+  // For Vignette
+  vignetteType    String?      @map("vignette_type") // 7 zile, 30 zile, 1 an
+
+  // Status
+  status          DocumentStatus @default(ACTIVE)
+
+  // Notification tracking
+  notifiedDays30  Boolean      @default(false) @map("notified_days_30")
+  notifiedDays14  Boolean      @default(false) @map("notified_days_14")
+  notifiedDays7   Boolean      @default(false) @map("notified_days_7")
+  notifiedDays3   Boolean      @default(false) @map("notified_days_3")
+  notifiedDays1   Boolean      @default(false) @map("notified_days_1")
+  notifiedExpired Boolean      @default(false) @map("notified_expired")
+
+  notes           String?      @db.Text
+
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  vehicle         Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  vehicleId       String       @map("vehicle_id")
+  notifications   NotificationLog[]
+
+  @@index([vehicleId])
+  @@index([expiryDate])
+  @@index([type, status])
+  @@map("documents")
+}
+
+enum DocumentType {
+  ITP        // Inspectia Tehnica Periodica
+  RCA        // Asigurare obligatorie
+  CASCO      // Asigurare optionala
+  VIGNETTE   // Rovinieta
+  OTHER
+}
+
+enum DocumentStatus {
+  ACTIVE
+  EXPIRING_SOON
+  EXPIRED
+  RENEWED
+}
+
+// ============================================
+// NOTIFICATION TEMPLATES
+// ============================================
+model NotificationTemplate {
+  id              String            @id @default(uuid())
+
+  name            String
+  description     String?
+
+  // Template content
+  type            DocumentType      // Which document type this is for
+  triggerDays     Int               @map("trigger_days") // Days before expiry (30, 14, 7, 3, 1, 0, -1)
+
+  // Channels
+  smsEnabled      Boolean           @default(true) @map("sms_enabled")
+  emailEnabled    Boolean           @default(false) @map("email_enabled")
+
+  // SMS Template
+  smsContent      String?           @db.Text @map("sms_content")
+
+  // Email Template
+  emailSubject    String?           @map("email_subject")
+  emailContent    String?           @db.Text @map("email_content")
+
+  // Available variables: {{client_name}}, {{vehicle_plate}}, {{vehicle_make}},
+  // {{vehicle_model}}, {{document_type}}, {{expiry_date}}, {{days_remaining}},
+  // {{company_name}}, {{company_phone}}
+
+  isActive        Boolean           @default(true) @map("is_active")
+  isDefault       Boolean           @default(false) @map("is_default")
+
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  notifications   NotificationLog[]
+
+  @@unique([type, triggerDays, isDefault])
+  @@map("notification_templates")
+}
+
+// ============================================
+// NOTIFICATION LOG
+// ============================================
+model NotificationLog {
+  id              String            @id @default(uuid())
+
+  // Channel
+  channel         NotificationChannel
+
+  // Content (actual sent content)
+  recipient       String            // Phone or Email
+  subject         String?           // For email
+  content         String            @db.Text
+
+  // Status
+  status          NotificationStatus @default(PENDING)
+  providerRef     String?           @map("provider_ref") // Message ID from Twilio/SendGrid
+  errorMessage    String?           @map("error_message")
+
+  // Cost
+  cost            Decimal?          @db.Decimal(10, 4)
+
+  // Timestamps
+  scheduledAt     DateTime?         @map("scheduled_at")
+  sentAt          DateTime?         @map("sent_at")
+  deliveredAt     DateTime?         @map("delivered_at")
+
+  createdAt       DateTime          @default(now()) @map("created_at")
+
+  // Relations
+  client          Client?           @relation(fields: [clientId], references: [id])
+  clientId        String?           @map("client_id")
+  document        Document?         @relation(fields: [documentId], references: [id])
+  documentId      String?           @map("document_id")
+  template        NotificationTemplate? @relation(fields: [templateId], references: [id])
+  templateId      String?           @map("template_id")
+
+  @@index([status])
+  @@index([channel])
+  @@index([createdAt])
+  @@index([clientId])
+  @@map("notification_logs")
+}
+
+enum NotificationChannel {
+  SMS
+  EMAIL
+}
+
+enum NotificationStatus {
+  PENDING
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+// ============================================
+// NOTIFICATION RULES
+// ============================================
+model NotificationRule {
+  id              String       @id @default(uuid())
+
+  name            String
+  description     String?
+
+  // Rule configuration
+  documentType    DocumentType @map("document_type")
+  daysBeforeExpiry Int[]       @map("days_before_expiry") // [30, 14, 7, 3, 1]
+
+  // Channels
+  sendSms         Boolean      @default(true) @map("send_sms")
+  sendEmail       Boolean      @default(false) @map("send_email")
+
+  // Time to send
+  sendTime        String       @default("09:00") @map("send_time") // HH:MM format
+
+  isActive        Boolean      @default(true) @map("is_active")
+
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  @@map("notification_rules")
+}
+
+// ============================================
+// APPOINTMENTS
+// ============================================
+model Appointment {
+  id              String            @id @default(uuid())
+
+  // Client info (can be existing client or new)
+  clientName      String            @map("client_name")
+  clientPhone     String            @map("client_phone")
+  clientEmail     String?           @map("client_email")
+
+  // Vehicle info
+  vehiclePlate    String?           @map("vehicle_plate")
+  vehicleMake     String?           @map("vehicle_make")
+  vehicleModel    String?           @map("vehicle_model")
+  vehicleYear     Int?              @map("vehicle_year")
+  vehicleCategory VehicleCategory   @default(AUTOTURISM) @map("vehicle_category")
+
+  // Service type
+  serviceType     ServiceType       @map("service_type")
+  serviceNotes    String?           @db.Text @map("service_notes")
+
+  // Date and time
+  appointmentDate DateTime          @map("appointment_date")
+  startTime       String            @map("start_time") // HH:MM format
+  endTime         String            @map("end_time")   // HH:MM format
+  duration        Int               @default(30)       // minutes (30 normal, 45-60 blocked)
+
+  // RAR Blocking (reverificare aleatorie)
+  isRarBlocked    Boolean           @default(false) @map("is_rar_blocked")
+  rarBlockedAt    DateTime?         @map("rar_blocked_at")
+  rarNotes        String?           @db.Text @map("rar_notes")
+
+  // ITP Result
+  itpResult       ItpResult?        @map("itp_result")
+  itpNotes        String?           @db.Text @map("itp_notes")
+
+  // Status
+  status          AppointmentStatus @default(PENDING)
+
+  // Confirmation
+  confirmationCode String?          @unique @map("confirmation_code")
+  approvalToken   String?           @unique @map("approval_token") // Token pentru link-uri Accept/Refuz din email
+  confirmedAt     DateTime?         @map("confirmed_at")
+  cancelledAt     DateTime?         @map("cancelled_at")
+  cancelReason    String?           @map("cancel_reason")
+
+  // Reminder tracking
+  reminderSent    Boolean           @default(false) @map("reminder_sent")
+  reminderSentAt  DateTime?         @map("reminder_sent_at")
+
+  // Relations (optional link to existing client)
+  client          Client?           @relation(fields: [clientId], references: [id])
+  clientId        String?           @map("client_id")
+
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  @@index([appointmentDate])
+  @@index([status])
+  @@index([clientPhone])
+  @@map("appointments")
+}
+
+// Categoria vehiculului pentru ITP
+enum VehicleCategory {
+  AUTOTURISM       // M1 - Autoturisme
+  AUTOUTILITARA    // N1 - Autoutilitare <= 3.5t
+  MOTOCICLETA      // L3e, L4e - Motociclete
+  REMORCA          // O1, O2 - Remorci
+  ATV              // L7e - ATV/Quad
+}
+
+enum ServiceType {
+  ITP              // Inspectie tehnica periodica
+  ITP_REINSPECTIE  // Reinspectie ITP (dupa respingere)
+  DIAGNOSTIC       // Diagnoza auto
+  OIL_CHANGE       // Schimb ulei
+  BRAKE_SERVICE    // Service frane
+  TIRE_SERVICE     // Service anvelope
+  AC_SERVICE       // Service AC
+  GENERAL_SERVICE  // Service general
+  CONSULTATION     // Consultatie
+  OTHER            // Altele
+}
+
+// Rezultat ITP
+enum ItpResult {
+  ADMIS            // Vehicul admis
+  RESPINS          // Vehicul respins - necesita reparatii
+  ADMIS_OBS        // Admis cu observatii/defecte minore
+}
+
+enum AppointmentStatus {
+  PENDING          // Asteptand confirmare
+  CONFIRMED        // Confirmat
+  IN_PROGRESS      // In desfasurare (vehicul in statie)
+  RAR_BLOCKED      // Blocat pentru reverificare RAR
+  CANCELLED        // Anulat
+  COMPLETED        // Finalizat
+  NO_SHOW          // Client neprezentat
+}
+
+// ============================================
+// HOLIDAYS (Romanian Orthodox + Custom)
+// ============================================
+model Holiday {
+  id              String   @id @default(uuid())
+
+  name            String
+  date            DateTime @db.Date
+  isRecurring     Boolean  @default(false) @map("is_recurring") // Recurent anual
+  isOrthodox      Boolean  @default(false) @map("is_orthodox")  // Sarbatoare ortodoxa
+
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@unique([date])
+  @@index([date])
+  @@map("holidays")
+}
+
+// ============================================
+// WORKING HOURS
+// ============================================
+model WorkingHours {
+  id              String   @id @default(uuid())
+
+  dayOfWeek       Int      @map("day_of_week") // 0=Sunday, 1=Monday, ..., 6=Saturday
+  isOpen          Boolean  @default(true) @map("is_open")
+  openTime        String?  @map("open_time")   // HH:MM
+  closeTime       String?  @map("close_time")  // HH:MM
+
+  // Break time (optional)
+  breakStart      String?  @map("break_start") // HH:MM
+  breakEnd        String?  @map("break_end")   // HH:MM
+
+  // Slot configuration
+  slotDuration    Int      @default(60) @map("slot_duration")      // minutes
+  maxAppointments Int      @default(1) @map("max_appointments")    // per slot
+
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([dayOfWeek])
+  @@map("working_hours")
+}

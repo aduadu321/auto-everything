@@ -1,0 +1,99 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  SERVER_HOST: misedainspectsrl.ro
+  SERVER_PORT: 2223
+  SERVER_USER: root
+  DEPLOY_PATH: /root/itp-miseda
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: api/package-lock.json
+
+      - name: Install API dependencies
+        working-directory: ./api
+        run: npm ci
+
+      - name: Run linter
+        working-directory: ./api
+        run: npm run lint --if-present
+
+      - name: Build API
+        working-directory: ./api
+        run: npm run build
+
+  deploy:
+    name: Deploy to Server
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p ${{ env.SERVER_PORT }} ${{ env.SERVER_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Deploy to server
+        run: |
+          # Sync files to server
+          rsync -avz --delete \
+            --exclude 'node_modules' \
+            --exclude '.git' \
+            --exclude '.env' \
+            --exclude 'dist' \
+            -e "ssh -i ~/.ssh/deploy_key -p ${{ env.SERVER_PORT }} -o StrictHostKeyChecking=no" \
+            ./ ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}:${{ env.DEPLOY_PATH }}/
+
+      - name: Build and restart containers
+        run: |
+          ssh -i ~/.ssh/deploy_key -p ${{ env.SERVER_PORT }} -o StrictHostKeyChecking=no \
+            ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} << 'EOF'
+          cd ${{ env.DEPLOY_PATH }}
+
+          # Build containers
+          docker compose -f docker-compose.prod.yml build --no-cache
+
+          # Start/restart containers
+          docker compose -f docker-compose.prod.yml up -d
+
+          # Wait for containers to be healthy
+          sleep 10
+
+          # Run database migrations
+          docker exec itp-api npx prisma db push --schema=prisma/schema.tenant.prisma --accept-data-loss || true
+
+          # Restart API to apply migrations
+          docker restart itp-api
+
+          # Clean up old images
+          docker image prune -f
+
+          # Show status
+          docker compose -f docker-compose.prod.yml ps
+          EOF
+
+      - name: Health check
+        run: |
+          sleep 15
+          curl -f https://misedainspectsrl.ro/api || echo "Health check warning - server might still be starting"
